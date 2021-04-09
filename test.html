@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DOM Events Filter</title>
+</head>
+<body style="height: 100vh">
+
+<div>
+    <label>
+        Real global:
+        <input type="text">
+    </label>
+    <button>Try it!</button>
+</div>
+
+<div data-context="global">
+    <div data-context="editor">
+        <label>
+            Global/Editor part:
+            <textarea cols="30" rows="10"></textarea>
+        </label>
+        <button>Click me</button>
+    </div>
+    <div data-context="info">
+        <label>
+            Global/Info part:
+            <input type="text">
+        </label>
+        <button id="info-btn">And me</button>
+    </div>
+</div>
+
+<script type="module" src="test.js"></script>
+</body>
+</html>

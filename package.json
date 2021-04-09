@@ -1,0 +1,25 @@
+{
+  "name": "dom-event-filter",
+  "version": "0.0.1",
+  "description": "Allows you to split your page to contexts and catch events (like hotkeys) by mask-objects from config",
+  "main": "index.js",
+  "scripts": {
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest"
+  },
+  "keywords": [
+    "hotkey",
+    "dom",
+    "event"
+  ],
+  "author": "Liksu",
+  "license": "ISC",
+  "type": "module",
+  "jest": {
+    "rootDir": "./tests",
+    "testEnvironment": "jest-environment-node",
+    "transform": {}
+  },
+  "devDependencies": {
+    "jest": "^26.6.3"
+  }
+}
