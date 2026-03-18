@@ -12,7 +12,7 @@
     "event"
   ],
   "author": "Liksu",
-  "license": "ISC",
+  "license": "MIT",
   "type": "module",
   "jest": {
     "rootDir": "./tests",

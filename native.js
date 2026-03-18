@@ -96,11 +96,13 @@ class DomEventFilter {
 
     #emit(originalEvent, composedContexts, eventConfig) {
         const context = composedContexts[0] ?? null;
+        const fullContext = composedContexts.reverse().join('.');
         const {name} = eventConfig;
 
         const detail = {
             name,
             context,
+            fullContext,
             composedContexts,
             originalEvent,
             eventConfig

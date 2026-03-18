@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOM Event Filter - Interactive Playground</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 250px 1fr 300px;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+            min-height: 100vh;
+            pointer-events: none;
+        }
+        
+        .card, .side-panel {
+            pointer-events: all;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .context-section {
+            margin-bottom: 24px;
+        }
+
+        .context-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .context-badge {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            background: white;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .btn-secondary:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .game-area {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            min-height: 200px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .game-area:focus {
+            outline: none;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+            border: 2px solid #00ff88;
+        }
+
+        .game-area:hover {
+            background: #1f1f3a;
+        }
+
+        .game-title {
+            color: #00ff88;
+            font-family: 'Courier New', monospace;
+            font-size: 1.5rem;
+            margin-bottom: 16px;
+            text-shadow: 0 0 10px #00ff88;
+        }
+
+        .player {
+            width: 40px;
+            height: 40px;
+            background: #00ff88;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.2s ease;
+            box-shadow: 0 0 20px #00ff88;
+        }
+
+        .cheat-status {
+            color: #ff6b6b;
+            font-family: 'Courier New', monospace;
+            margin-top: 16px;
+            font-weight: bold;
+            text-shadow: 0 0 10px #ff6b6b;
+        }
+
+        .side-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 20px;
+            max-height: calc(100vh - 40px);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .events-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #333;
+            text-align: center;
+        }
+
+        .events-list {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 400px;
+        }
+
+        .event-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-left: 4px solid #667eea;
+            font-size: 0.9rem;
+            animation: slideIn 0.3s ease;
+        }
+
+        .event-name {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 4px;
+        }
+
+        .event-context {
+            color: #666;
+            font-size: 0.8rem;
+        }
+
+        .event-time {
+            color: #999;
+            font-size: 0.75rem;
+            margin-top: 4px;
+        }
+
+        .hotkeys-help {
+            background: rgba(26, 26, 46, 0.9);
+            color: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+        }
+
+        .hotkey-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .hotkey-item:last-child {
+            border-bottom: none;
+        }
+
+        .hotkey-combo {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .side-panel hr {
+            border: none;
+            border-top: 1px solid rgba(102, 126, 234, 0.2);
+            color: #666;
+            overflow: visible;
+            text-align: center;
+            height: 5px;
+            margin: 1.5em 0 1em 0;
+        }
+
+        .side-panel hr::after {
+            background: rgba(255, 255, 255, 0.95);
+            content: attr(title);
+            padding: 0 8px;
+            position: relative;
+            top: -10px;
+            font-size: 0.7em;
+            color: #666;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .side-panel .hotkey-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+            font-size: 0.9rem;
+        }
+
+        .side-panel .hotkey-item:last-child {
+            border-bottom: none;
+        }
+
+        .side-panel .hotkey-combo {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 1fr 300px;
+            }
+            
+            .config-panel {
+                display: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .card {
+                padding: 16px;
+            }
+            
+            .side-panel {
+                position: relative;
+                max-height: 300px;
+            }
+            
+            .config-panel {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Left Panel: Configured Events -->
+        <div class="side-panel config-panel" data-context="config-panel">
+            <div class="events-title">⚙️ Config</div>
+            
+            <hr title="global">
+            <div class="hotkey-item">
+                <span>Save</span>
+                <span class="hotkey-combo">Ctrl+S</span>
+            </div>
+            <div class="hotkey-item">
+                <span>Open</span>
+                <span class="hotkey-combo">Alt+O</span>
+            </div>
+            
+            <hr title="editor">
+            <div class="hotkey-item">
+                <span>Autocomplete</span>
+                <span class="hotkey-combo">Tab Tab</span>
+            </div>
+            <div class="hotkey-item">
+                <span>Change</span>
+                <span class="hotkey-combo">Type in input</span>
+            </div>
+            <div class="hotkey-item">
+                <span>Focus</span>
+                <span class="hotkey-combo">Click input/textarea</span>
+            </div>
+            
+            <hr title="info">
+            <div class="hotkey-item">
+                <span>Info Action</span>
+                <span class="hotkey-combo">Ctrl+Click button</span>
+            </div>
+            
+            <hr title="game">
+            <div class="hotkey-item">
+                <span>Move</span>
+                <span class="hotkey-combo">Arrow Keys</span>
+            </div>
+            <div class="hotkey-item">
+                <span>Jump</span>
+                <span class="hotkey-combo">Space</span>
+            </div>
+            <div class="hotkey-item">
+                <span>Shoot</span>
+                <span class="hotkey-combo">X</span>
+            </div>
+            
+            <hr title="sequences">
+            <div class="hotkey-item">
+                <span>Konami Code</span>
+                <span class="hotkey-combo">↑↑↓↓←→←→BA</span>
+            </div>
+            <div class="hotkey-item">
+                <span>God Mode</span>
+                <span class="hotkey-combo">I-D-D-Q-D</span>
+            </div>
+            <div class="hotkey-item">
+                <span>All Weapons</span>
+                <span class="hotkey-combo">I-D-K-F-A</span>
+            </div>
+        </div>
+
+        <!-- Middle: Main Content -->
+        <div class="main-content">
+            <div class="card header">
+                <h1>DOM Event Filter</h1>
+                <p>Interactive playground showcasing context-aware event handling</p>
+            </div>
+
+            <!-- Game Context -->
+            <div class="card" data-context="game">
+                <div class="context-title">
+                    <span class="context-badge">Game</span>
+                    Mini Game Arena
+                </div>
+                <div class="game-area">
+                    <div class="game-title">▲ RETRO GAME ▲</div>
+                    <div class="player" id="player"></div>
+                    <div style="color: #00ff88; margin-top: 60px; font-family: 'Courier New', monospace;">
+                        Click here first, then try: Move, Jump, Shoot, Konami Code, God Mode, All Weapons
+                    </div>
+                    <div id="cheat-status" class="cheat-status"></div>
+                </div>
+            </div>
+
+            <!-- Editor Context -->
+            <div class="card">
+                <div data-context="editor" class="context-section">
+                    <div class="context-title">
+                        <span class="context-badge">Editor</span>
+                        Text Editor Context
+                    </div>
+                    <div class="form-group" data-context="very">
+                        <label for="editor-textarea">Rich text editor (try Save, Autocomplete, Focus):</label>
+                        <textarea id="editor-textarea" class="form-control" data-context="deep" rows="6" placeholder="Start typing... Try Ctrl+S to save or Tab-Tab for autocomplete"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="editor-input">Editor input field (try Change, Focus):</label>
+                        <input type="text" id="editor-input" class="form-control" placeholder="Test change/focus events here" data-context="">
+                    </div>
+                    <button class="btn btn-primary">Editor Action</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div data-context="form" class="context-section">
+                    <div class="context-title">
+                        <span class="context-badge">Form</span>
+                        Just another form
+                    </div>
+                    <div class="form-group">
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Live Events -->
+        <div class="side-panel">
+            <div class="events-title">🎯 Live Events</div>
+            <div id="events-list" class="events-list"></div>
+        </div>
+    </div>
+
+    <script type="module" src="demo.js"></script>
+</body>
+</html>
