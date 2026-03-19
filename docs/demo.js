@@ -1,388 +1,821 @@
 // import { DomEventFilter } from "https://unpkg.com/dom-event-filter@latest/index.js";
 import { DomEventFilter } from "http://localhost:8888/index.js";
 
-// Enhanced filter configuration with all examples from README
 const filter = new DomEventFilter({
-    // Global hotkeys
-    save: { key: 's', ctrlKey: true },
-    open: { key: 'o', altKey: true },
+    save: { code: 'KeyS', ctrlKey: true },
+    open: { code: 'KeyO', altKey: true },
 
-    // Body click events
-    bodyClick: { target: document.body, type: 'click' },
-
-    // Editor context events
-    editor: {
-        very: {
-            deep: {
-                save: { key: 's', ctrlKey: true },
-            }
-        },
-        save: { key: 's', ctrlKey: true },
-        autocomplete: [{ keyCode: 9 }, { keyCode: 9 }],
-        // Form events in editor context
-        validateInput: { type: 'change', target: '#editor-input' },
-        focusTextarea: { type: 'focus', target: '#editor-textarea' },
-        blurInput: { type: 'blur', target: 'input' }
-    },
-
-    // Info context events
-    info: {
-        target: '#info-btn',
-        type: 'click',
-        ctrlKey: true
-    },
-
-    // Game context events
     game: {
-        moveUp: { key: 'ArrowUp' },
-        moveDown: { key: 'ArrowDown' },
-        moveLeft: { key: 'ArrowLeft' },
-        moveRight: { key: 'ArrowRight' },
-        jump: { key: ' ' },
-        shoot: { key: 'x' }
+        jump: { code: 'Space' },
+        shoot: { key: 'Control' },
+        focusArena: { type: 'click', target: '#game-area' }
     },
 
-    // Event sequences (work globally, not just in game context)
-    konami: [
-        { key: 'ArrowUp' },
-        { key: 'ArrowUp' },
-        { key: 'ArrowDown' },
-        { key: 'ArrowDown' },
-        { key: 'ArrowLeft' },
-        { key: 'ArrowRight' },
-        { key: 'ArrowLeft' },
-        { key: 'ArrowRight' },
-        { key: 'b' },
-        { key: 'a' }
-    ],
+    editor: {
+        save: { code: 'KeyS', ctrlKey: true },
+        autocomplete: [{ code: 'Tab' }, { code: 'Tab' }],
+        toolbar: {
+            bold: { type: 'click', target: '#editor-bold-btn' },
+            italic: { type: 'click', target: '#editor-italic-btn' },
+            fontSize: { type: 'change', target: '#font-size-select' }
+        },
+        canvas: {
+            focusBody: { type: 'focusin', target: '#editor-canvas' },
+            blurBody: { type: 'focusout', target: '#editor-canvas' },
+            editBody: { type: 'input', target: '#editor-canvas' }
+        }
+    },
 
-    // Doom cheat codes
+    form: {
+        profile: {
+            focusName: { type: 'focusin', target: '#register-name' },
+            focusEmail: { type: 'focusin', target: '#register-email' },
+            validateName: { type: 'change', target: '#register-name' },
+            validateEmail: { type: 'change', target: '#register-email' }
+        },
+        security: {
+            focusPassword: { type: 'focusin', target: '#register-password' },
+            validatePassword: { type: 'change', target: '#register-password' }
+        },
+        meta: {
+            roleChange: { type: 'change', target: '#register-role' }
+        },
+        actions: {
+            validate: { type: 'click', target: '#validate-btn' },
+            resetClick: { type: 'click', target: '#reset-btn' },
+            submitClick: { type: 'click', target: '#submit-btn' }
+        },
+        submit: { code: 'Enter', ctrlKey: true },
+        reset: { code: 'Escape' }
+    },
+
     iddqd: [
-        { key: 'i' }, { key: 'd' }, { key: 'd' }, { key: 'q' }, { key: 'd' }
+        { code: 'KeyI' }, { code: 'KeyD' }, { code: 'KeyD' }, { code: 'KeyQ' }, { code: 'KeyD' }
     ],
-
     idkfa: [
-        { key: 'i' }, { key: 'd' }, { key: 'k' }, { key: 'f' }, { key: 'a' }
+        { code: 'KeyI' }, { code: 'KeyD' }, { code: 'KeyK' }, { code: 'KeyF' }, { code: 'KeyA' }
     ]
 }, {
-    resultEventType: ['{{fullContext}}.{{name}}', '*', '*.{{name}}', 'DOMFilterEvent']
+    eventType: 'keydown click change focusin focusout input',
+    eventTypes: {
+        keyboard: ['keydown', 'keypress', 'keyup'],
+        mouse: ['click', 'mousedown', 'mouseup'],
+        forms: ['change', 'input', 'focusin', 'focusout']
+    },
+    resultEventType: ['{{fullContext}}.{{name}}', '{{context}}.{{name}}', '{{name}}', '*', 'DOMFilterEvent']
 });
 
-// Events tracking system
-const eventsList = document.getElementById('events-list');
-let eventCounter = 0;
+// ── DOM refs ──
 
-function logEvent(eventName, context, originalEvent) {
-    eventCounter++;
-    const eventItem = document.createElement('div');
-    eventItem.className = 'event-item';
+const allEventsList = document.getElementById('all-events-list');
+const gameEventsList = document.getElementById('game-events-list');
+const editorStatus = document.getElementById('editor-status');
+const formStatus = document.getElementById('form-status');
 
+const contextCards = {
+    game: document.getElementById('game-card'),
+    editor: document.getElementById('editor-card'),
+    form: document.getElementById('form-card')
+};
+
+const contextStates = {
+    game: document.getElementById('game-context-state'),
+    editor: document.getElementById('editor-context-state'),
+    form: document.getElementById('form-context-state')
+};
+
+// ── Event log ──
+
+let allEventCount = 0;
+let gameEventCount = 0;
+
+function renderEvent(list, title, detail, count, className = '') {
+    const empty = list.querySelector('.empty-log');
+    if (empty) empty.remove();
+
+    const item = document.createElement('div');
+    item.className = `event-item ${className}`.trim();
+
+    const contextLabel = detail.fullContext || detail.context || 'global';
+    const sourceType = detail.originalEvent?.type || 'custom';
     const time = new Date().toLocaleTimeString();
-    eventItem.innerHTML = `
-        <div class="event-name">${eventName}</div>
-        <div class="event-context">Context: ${context || 'global'}</div>
-        <div class="event-time">#${eventCounter} at ${time}</div>
-    `;
 
-    eventsList.insertBefore(eventItem, eventsList.firstChild);
+    const nameEl = document.createElement('div');
+    nameEl.className = 'event-name';
+    nameEl.textContent = title;
 
-    // Keep only last 10 events
-    while (eventsList.children.length > 10) {
-        eventsList.removeChild(eventsList.lastChild);
+    const contextEl = document.createElement('div');
+    contextEl.className = 'event-context';
+    contextEl.textContent = `#${count} \u2022 context: ${contextLabel} \u2022 source: ${sourceType}`;
+
+    const timeEl = document.createElement('div');
+    timeEl.className = 'event-time';
+    timeEl.textContent = time;
+
+    item.append(nameEl, contextEl, timeEl);
+    list.insertBefore(item, list.firstChild);
+    while (list.children.length > 10) {
+        list.removeChild(list.lastChild);
     }
-
-    // Auto-scroll to top
-    eventsList.scrollTop = 0;
 }
 
-// Game mechanics
-const player = document.getElementById('player');
+function logAll(detail, label) {
+    allEventCount += 1;
+    renderEvent(allEventsList, label, detail, allEventCount);
+}
+
+function logGame(detail, label) {
+    gameEventCount += 1;
+    renderEvent(gameEventsList, label, detail, gameEventCount, 'game');
+}
+
+// ── Context tracking ──
+
+function setActiveContext(name = null) {
+    Object.entries(contextCards).forEach(([contextName, card]) => {
+        const active = contextName === name;
+        card.classList.toggle('is-active', active);
+        contextStates[contextName].textContent = active ? 'active' : 'inactive';
+    });
+}
+
+function findTopContext(target) {
+    if (!target?.closest) return null;
+    return target.closest('[data-context="game"], [data-context="editor"], [data-context="form"]')?.getAttribute('data-context') ?? null;
+}
+
+document.addEventListener('focusin', event => {
+    setActiveContext(findTopContext(event.target));
+});
+
+document.addEventListener('click', event => {
+    setActiveContext(findTopContext(event.target));
+});
+
+// ── Catch-all event log ──
+
+document.addEventListener('*', event => {
+    const label = event.detail.fullContext ? `${event.detail.fullContext}.${event.detail.name}` : event.detail.name;
+    logAll(event.detail, label);
+
+    if ((event.detail.fullContext || '').startsWith('game') || event.detail.context === 'game') {
+        logGame(event.detail, label);
+    }
+});
+
+// ── Editor ──
+
+const editorCanvas = document.getElementById('editor-canvas');
+const fontSizeSelect = document.getElementById('font-size-select');
+const boldBtn = document.getElementById('editor-bold-btn');
+const italicBtn = document.getElementById('editor-italic-btn');
+
+// Prevent toolbar buttons from stealing focus/selection from the editor
+document.querySelector('.wysiwyg-toolbar').addEventListener('mousedown', e => {
+    if (e.target.closest('.wysiwyg-btn')) e.preventDefault();
+});
+
+// Save selection when editor loses focus (e.g. clicking font-size dropdown)
+let savedRange = null;
+editorCanvas.addEventListener('focusout', () => {
+    const sel = window.getSelection();
+    if (sel.rangeCount && editorCanvas.contains(sel.anchorNode)) {
+        savedRange = sel.getRangeAt(0).cloneRange();
+    }
+});
+
+function restoreEditorSelection() {
+    if (!savedRange) return false;
+    editorCanvas.focus();
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(savedRange);
+    return true;
+}
+
+function updateEditorStatus(text, color = '') {
+    editorStatus.textContent = text;
+    editorStatus.style.color = color || '';
+}
+
+function applyEditorStyles(patch) {
+    Object.assign(editorCanvas.style, patch);
+}
+
+function insertAutocomplete() {
+    const variants = [
+        ' DomEventFilter routes events by DOM context hierarchy.',
+        ' Sequences like Tab-Tab are matched via ordered mask arrays.',
+        ' Custom events are dispatched using configurable name templates.'
+    ];
+    document.execCommand('insertText', false, variants[Math.floor(Math.random() * variants.length)]);
+}
+
+document.addEventListener('save', event => {
+    if ((event.detail.fullContext || '').startsWith('editor')) {
+        updateEditorStatus('Editor snapshot saved via Ctrl+S.', 'var(--success)');
+    } else {
+        formStatus.textContent = 'Global save event captured (no editor context).';
+        formStatus.style.color = 'var(--success)';
+    }
+});
+
+document.addEventListener('open', () => {
+    editorCanvas.textContent = 'Preset loaded. Shortcuts use event.code for layout-independent key matching.';
+    fontSizeSelect.value = '18';
+    applyEditorStyles({ fontSize: '18px' });
+    updateEditorStatus('Preset loaded via Alt+O.', 'var(--success)');
+});
+
+document.addEventListener('editor.toolbar.bold', () => {
+    document.execCommand('bold');
+    updateEditorStatus('Bold toggled.', 'var(--accent)');
+});
+
+document.addEventListener('editor.toolbar.italic', () => {
+    document.execCommand('italic');
+    updateEditorStatus('Italic toggled.', 'var(--accent)');
+});
+
+document.addEventListener('editor.toolbar.fontSize', () => {
+    const size = fontSizeSelect.value + 'px';
+    restoreEditorSelection();
+    const sel = window.getSelection();
+    if (sel.rangeCount && !sel.isCollapsed && editorCanvas.contains(sel.anchorNode)) {
+        document.execCommand('fontSize', false, '7');
+        editorCanvas.querySelectorAll('font[size="7"]').forEach(font => {
+            font.removeAttribute('size');
+            font.style.fontSize = size;
+        });
+    } else {
+        applyEditorStyles({ fontSize: size });
+    }
+    updateEditorStatus(`Font size set to ${fontSizeSelect.value}px.`, 'var(--accent)');
+});
+
+document.addEventListener('editor.canvas.focusBody', () => {
+    updateEditorStatus('Editor body focused.', 'var(--accent)');
+});
+
+document.addEventListener('editor.canvas.blurBody', () => {
+    updateEditorStatus('Editor body blurred.', '');
+});
+
+document.addEventListener('editor.canvas.editBody', () => {
+    updateEditorStatus('Editor content changed.', 'var(--accent)');
+});
+
+document.addEventListener('editor.autocomplete', event => {
+    event.detail.originalEvent?.preventDefault();
+    insertAutocomplete();
+    updateEditorStatus('Autocomplete inserted from Tab-Tab.', '#a56a00');
+});
+
+editorCanvas.addEventListener('paste', event => {
+    event.preventDefault();
+    const text = event.clipboardData?.getData('text/plain') || '';
+    document.execCommand('insertText', false, text);
+});
+
+// ── Form ──
+
+const registrationForm = document.getElementById('registration-form');
+const nameInput = document.getElementById('register-name');
+const emailInput = document.getElementById('register-email');
+const passwordInput = document.getElementById('register-password');
+const roleSelect = document.getElementById('register-role');
+
+const notes = {
+    name: document.getElementById('name-note'),
+    email: document.getElementById('email-note'),
+    password: document.getElementById('password-note')
+};
+
+function setNote(node, text, mode = '') {
+    node.textContent = text;
+    node.className = `validation-note ${mode}`.trim();
+}
+
+function validateName() {
+    const valid = nameInput.value.trim().length >= 2;
+    setNote(notes.name, valid ? 'Looks good.' : 'Name must contain at least 2 characters.', valid ? 'success' : 'error');
+    return valid;
+}
+
+function validateEmail() {
+    const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value.trim());
+    setNote(notes.email, valid ? 'Email is valid.' : 'Enter a valid email address.', valid ? 'success' : 'error');
+    return valid;
+}
+
+function validatePassword() {
+    const valid = passwordInput.value.length >= 6;
+    setNote(notes.password, valid ? 'Password length is valid.' : 'Password must be at least 6 characters.', valid ? 'success' : 'error');
+    return valid;
+}
+
+function validateForm() {
+    const valid = [validateName(), validateEmail(), validatePassword()].every(Boolean);
+    formStatus.textContent = valid ? `Ready to submit as ${roleSelect.value}.` : 'Validation failed. Fix the fields.';
+    formStatus.style.color = valid ? 'var(--success)' : 'var(--danger)';
+    return valid;
+}
+
+function clearFormState() {
+    Object.values(notes).forEach(node => setNote(node, ''));
+    formStatus.textContent = 'Form ready. Ctrl+Enter dispatches form.submit, Escape dispatches form.reset.';
+    formStatus.style.color = '';
+}
+
+document.addEventListener('form.profile.focusName', () => {
+    formStatus.textContent = 'Editing name.';
+    formStatus.style.color = '';
+});
+
+document.addEventListener('form.profile.focusEmail', () => {
+    formStatus.textContent = 'Editing email.';
+    formStatus.style.color = '';
+});
+
+document.addEventListener('form.security.focusPassword', () => {
+    formStatus.textContent = 'Editing password.';
+    formStatus.style.color = '';
+});
+
+document.addEventListener('form.profile.validateName', validateName);
+document.addEventListener('form.profile.validateEmail', validateEmail);
+document.addEventListener('form.security.validatePassword', validatePassword);
+
+document.addEventListener('form.meta.roleChange', () => {
+    formStatus.textContent = `Role changed to ${roleSelect.value}.`;
+    formStatus.style.color = '';
+});
+
+document.addEventListener('form.actions.validate', validateForm);
+
+document.addEventListener('form.actions.resetClick', () => {
+    registrationForm.reset();
+});
+
+document.addEventListener('form.actions.submitClick', () => {
+    completeSubmit();
+});
+
+function completeSubmit() {
+    if (!validateForm()) return;
+    formStatus.textContent = `Submitted for ${nameInput.value || 'anonymous'} (${roleSelect.value}).`;
+    formStatus.style.color = 'var(--success)';
+}
+
+document.addEventListener('form.submit', event => {
+    event.detail.originalEvent?.preventDefault();
+    completeSubmit();
+});
+
+document.addEventListener('form.reset', event => {
+    event.detail.originalEvent?.preventDefault();
+    registrationForm.reset();
+    clearFormState();
+});
+
+registrationForm.addEventListener('submit', event => {
+    event.preventDefault();
+    completeSubmit();
+});
+
+registrationForm.addEventListener('reset', () => {
+    setTimeout(clearFormState, 0);
+});
+
+// ── Game ──
+
+const gameArea = document.getElementById('game-area');
+const gameCanvas = document.getElementById('game-canvas');
+const gameMessage = document.getElementById('game-message');
 const cheatStatus = document.getElementById('cheat-status');
-let playerX = 50; // percentage
-let playerY = 50; // percentage
-let isGodMode = false;
-let hasAllWeapons = false;
+const gameScoreEl = document.getElementById('game-score');
+const gameLivesEl = document.getElementById('game-lives');
+const gameAmmoEl = document.getElementById('game-ammo');
+const gameSpeedEl = document.getElementById('game-speed');
+const ctx = gameCanvas.getContext('2d');
 
-function updatePlayerPosition() {
-    player.style.left = playerX + '%';
-    player.style.top = playerY + '%';
-}
+const CANVAS_H = 280;
+const FONT_STACK = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
 
-function movePlayer(direction) {
-    const step = 5; // 5% movement
-    const boundary = 10; // 10% from edges
+const gameState = {
+    active: false,
+    running: true,
+    score: 0,
+    lives: 3,
+    ammo: 5,
+    speed: 3,
+    canvasWidth: 0,
+    jumpVelocity: 0,
+    gravity: 0.65,
+    groundTop: 240,
+    playerGroundY: 200,
+    player: { x: 84, y: 200, width: 28, height: 40 },
+    obstacles: [],
+    enemies: [],
+    shots: [],
+    spawnTimer: 0,
+    ammoTimer: 0,
+    lastTime: performance.now(),
+    invulnerableUntil: 0,
+    isGodMode: false,
+    hasAllWeapons: false
+};
 
-    switch (direction) {
-        case 'up':
-            if (playerY > boundary) playerY -= step;
-            break;
-        case 'down':
-            if (playerY < 100 - boundary) playerY += step;
-            break;
-        case 'left':
-            if (playerX > boundary) playerX -= step;
-            break;
-        case 'right':
-            if (playerX < 100 - boundary) playerX += step;
-            break;
-    }
-
-    updatePlayerPosition();
+let prevHud = {};
+function updateHud() {
+    const next = {
+        score: String(Math.floor(gameState.score)),
+        lives: gameState.isGodMode ? '\u221e' : String(gameState.lives),
+        ammo: gameState.hasAllWeapons ? '\u221e' : String(gameState.ammo),
+        speed: gameState.speed.toFixed(1)
+    };
+    if (next.score !== prevHud.score) gameScoreEl.textContent = next.score;
+    if (next.lives !== prevHud.lives) gameLivesEl.textContent = next.lives;
+    if (next.ammo !== prevHud.ammo) gameAmmoEl.textContent = next.ammo;
+    if (next.speed !== prevHud.speed) gameSpeedEl.textContent = next.speed;
+    prevHud = next;
 }
 
 function updateCheatStatus() {
-    let status = [];
-    if (isGodMode) status.push('GOD MODE');
-    if (hasAllWeapons) status.push('ALL WEAPONS');
+    const parts = [];
+    if (gameState.isGodMode) parts.push('GOD MODE');
+    if (gameState.hasAllWeapons) parts.push('UNLIMITED AMMO');
+    cheatStatus.textContent = parts.length ? parts.join(' \u2022 ') : 'No active sequences. Type IDDQD or IDKFA anywhere.';
+}
 
-    cheatStatus.textContent = status.length > 0 ? status.join(' • ') : '';
+function resetGame() {
+    gameState.running = true;
+    gameState.score = 0;
+    gameState.lives = 3;
+    gameState.ammo = 5;
+    gameState.speed = 3;
+    gameState.jumpVelocity = 0;
+    gameState.player.y = gameState.playerGroundY;
+    gameState.obstacles = [];
+    gameState.enemies = [];
+    gameState.shots = [];
+    gameState.spawnTimer = 1200;
+    gameState.ammoTimer = 0;
+    gameState.invulnerableUntil = 0;
+    gameMessage.textContent = 'Game started. Space to jump, Ctrl to shoot. Events only fire within this context.';
+    updateHud();
+}
 
-    // Visual effects for cheats
-    let icon = '';
-    if (isGodMode && hasAllWeapons) {
-        // Both cheats active
-        player.style.background = 'linear-gradient(45deg, #ff6b6b, #ffa500, #00ff88, #00ccff)';
-        player.style.boxShadow = '0 0 40px #ff6b6b';
-        icon = '👑'; // King icon for both cheats
-    } else if (isGodMode) {
-        player.style.background = 'linear-gradient(45deg, #ff6b6b, #ffa500)';
-        player.style.boxShadow = '0 0 30px #ff6b6b';
-        icon = '🛡️'; // Shield for god mode
-    } else if (hasAllWeapons) {
-        player.style.background = 'linear-gradient(45deg, #00ff88, #00ccff)';
-        player.style.boxShadow = '0 0 30px #00ff88';
-        icon = '🔫'; // Gun for all weapons
-    } else {
-        player.style.background = '#00ff88';
-        player.style.boxShadow = '0 0 20px #00ff88';
-        icon = '';
+function resizeCanvas() {
+    const rect = gameCanvas.getBoundingClientRect();
+    const width = Math.max(560, Math.floor(rect.width));
+    const dpr = window.devicePixelRatio || 1;
+    gameCanvas.width = width * dpr;
+    gameCanvas.height = CANVAS_H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    gameState.canvasWidth = width;
+}
+
+function spawnObstacle() {
+    const height = 30 + Math.round(Math.random() * 20);
+    gameState.obstacles.push({
+        x: gameState.canvasWidth + 30,
+        y: gameState.groundTop - height,
+        width: 20,
+        height
+    });
+}
+
+function spawnEnemy() {
+    const minY = 60;
+    const maxY = gameState.groundTop - 50;
+    const y = minY + Math.round(Math.random() * (maxY - minY));
+    gameState.enemies.push({
+        x: gameState.canvasWidth + 30,
+        y,
+        width: 28,
+        height: 28
+    });
+}
+
+function shoot() {
+    if (!gameState.running) {
+        resetGame();
+        return;
     }
 
-    // Add icon to player
-    if (icon && !player.innerHTML.includes('🎮')) { // Don't override Konami icon
-        player.innerHTML = icon;
-        player.style.display = 'flex';
-        player.style.alignItems = 'center';
-        player.style.justifyContent = 'center';
-        player.style.fontSize = '20px';
-    } else if (!icon && !player.innerHTML.includes('🎮')) {
-        player.innerHTML = '';
+    if (!gameState.hasAllWeapons && gameState.ammo <= 0) {
+        gameMessage.textContent = 'Out of ammo. Reloads automatically every 1.6s.';
+        return;
+    }
+
+    const startX = gameState.player.x + gameState.player.width + 4;
+    const startY = gameState.player.y + gameState.player.height / 2 - 3;
+    const speed = 12;
+    let vy = 0;
+
+    // Auto-aim at nearest enemy ahead
+    const ahead = gameState.enemies.filter(e => e.x > gameState.player.x);
+    if (ahead.length > 0) {
+        ahead.sort((a, b) => a.x - b.x);
+        const target = ahead[0];
+        const targetY = target.y + target.height / 2 - 3;
+        const dx = target.x - startX;
+        if (dx > 0) {
+            vy = ((targetY - startY) / dx) * speed;
+        }
+    }
+
+    gameState.shots.push({
+        x: startX,
+        y: startY,
+        width: 20,
+        height: 6,
+        vy
+    });
+
+    if (!gameState.hasAllWeapons) {
+        gameState.ammo -= 1;
+    }
+
+    updateHud();
+}
+
+function jump() {
+    if (!gameState.running) {
+        resetGame();
+        return;
+    }
+
+    if (gameState.player.y < gameState.playerGroundY) return;
+    gameState.jumpVelocity = gameState.isGodMode ? -15 : -12;
+}
+
+function intersects(a, b) {
+    return !(
+        a.x + a.width < b.x ||
+        a.x > b.x + b.width ||
+        a.y + a.height < b.y ||
+        a.y > b.y + b.height
+    );
+}
+
+function applyDamage(now) {
+    if (gameState.isGodMode) return;
+    if (now < gameState.invulnerableUntil) return;
+    gameState.lives -= 1;
+    gameState.invulnerableUntil = now + 900;
+    gameMessage.textContent = gameState.lives > 0
+        ? 'Hit! Obstacles and enemies are context-scoped objects.'
+        : 'Game over. Press Space or Ctrl to restart.';
+    if (gameState.lives <= 0) {
+        gameState.running = false;
+    }
+    updateHud();
+}
+
+function updateGame(delta, now) {
+    if (!gameState.active) return;
+
+    if (gameState.running) {
+        gameState.score += delta * 0.014;
+        gameState.speed = 3 + Math.min(gameState.score / 150, 3);
+
+        gameState.jumpVelocity += gameState.gravity;
+        gameState.player.y += gameState.jumpVelocity;
+        if (gameState.player.y > gameState.playerGroundY) {
+            gameState.player.y = gameState.playerGroundY;
+            gameState.jumpVelocity = 0;
+        }
+
+        gameState.spawnTimer -= delta;
+        if (gameState.spawnTimer <= 0) {
+            if (Math.random() < 0.3) {
+                spawnEnemy();
+            } else {
+                spawnObstacle();
+            }
+            gameState.spawnTimer = Math.max(900, 1800 - gameState.speed * 120);
+        }
+
+        gameState.ammoTimer += delta;
+        if (!gameState.hasAllWeapons && gameState.ammo < 5 && gameState.ammoTimer >= 1200) {
+            gameState.ammo += 1;
+            gameState.ammoTimer = 0;
+        }
+    }
+
+    const worldSpeed = gameState.running ? gameState.speed : 0;
+
+    gameState.obstacles = gameState.obstacles.filter(obstacle => {
+        obstacle.x -= worldSpeed;
+        if (intersects(gameState.player, obstacle) && gameState.running) {
+            applyDamage(now);
+            return false;
+        }
+        return obstacle.x + obstacle.width > 0;
+    });
+
+    gameState.enemies = gameState.enemies.filter(enemy => {
+        enemy.x -= worldSpeed + (gameState.running ? 0.8 : 0);
+        if (intersects(gameState.player, enemy) && gameState.running) {
+            applyDamage(now);
+            return false;
+        }
+        return enemy.x + enemy.width > 0;
+    });
+
+    gameState.shots = gameState.shots.filter(shot => {
+        shot.x += 12;
+        shot.y += (shot.vy || 0);
+
+        // Off-screen vertically
+        if (shot.y < -10 || shot.y > CANVAS_H + 10) return false;
+
+        const enemyIndex = gameState.enemies.findIndex(enemy => intersects(shot, enemy));
+        if (enemyIndex !== -1) {
+            gameState.enemies.splice(enemyIndex, 1);
+            gameState.score += 20;
+            gameMessage.textContent = 'Enemy destroyed! +20 score.';
+            return false;
+        }
+
+        return shot.x < gameState.canvasWidth + 20;
+    });
+
+    updateHud();
+}
+
+function drawGame() {
+    const w = gameState.canvasWidth;
+
+    ctx.clearRect(0, 0, w, CANVAS_H);
+
+    // ground
+    ctx.fillStyle = '#d8e2eb';
+    ctx.fillRect(0, gameState.groundTop, w, CANVAS_H - gameState.groundTop);
+    ctx.strokeStyle = '#b5c2cf';
+    ctx.beginPath();
+    ctx.moveTo(0, gameState.groundTop);
+    ctx.lineTo(w, gameState.groundTop);
+    ctx.stroke();
+
+    const now = performance.now();
+    const flashing = gameState.invulnerableUntil > now && Math.floor(now / 100) % 2 === 0;
+
+    // player body
+    ctx.fillStyle = flashing ? '#8fb4c7' : '#4c6f8f';
+    const p = gameState.player;
+    ctx.fillRect(p.x, p.y, p.width, p.height);
+    // player head
+    ctx.fillStyle = '#93a8bd';
+    ctx.fillRect(p.x + 4, p.y - 14, p.width - 8, 14);
+
+    // obstacles (green ground blocks)
+    ctx.fillStyle = '#2f9e44';
+    gameState.obstacles.forEach(o => {
+        ctx.fillRect(o.x, o.y, o.width, o.height);
+    });
+
+    // enemies (red drones at varied heights)
+    ctx.fillStyle = '#e03131';
+    gameState.enemies.forEach(e => {
+        ctx.fillRect(e.x, e.y, e.width, e.height);
+        ctx.fillStyle = '#1b2430';
+        ctx.fillRect(e.x + 6, e.y + 8, 5, 5);
+        ctx.fillRect(e.x + 17, e.y + 8, 5, 5);
+        ctx.fillStyle = '#e03131';
+    });
+
+    // projectiles (rotated to match trajectory)
+    ctx.fillStyle = '#f08c00';
+    gameState.shots.forEach(s => {
+        if (s.vy) {
+            const angle = Math.atan2(s.vy, 12);
+            ctx.save();
+            ctx.translate(s.x + s.width / 2, s.y + s.height / 2);
+            ctx.rotate(angle);
+            ctx.fillRect(-s.width / 2, -s.height / 2, s.width, s.height);
+            ctx.restore();
+        } else {
+            ctx.fillRect(s.x, s.y, s.width, s.height);
+        }
+    });
+
+    // game over overlay
+    if (!gameState.running) {
+        ctx.fillStyle = 'rgba(27, 36, 48, 0.55)';
+        ctx.fillRect(0, 0, w, CANVAS_H);
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        ctx.font = `bold 24px ${FONT_STACK}`;
+        ctx.fillStyle = '#fff';
+        ctx.fillText('GAME OVER', w / 2, 126);
+
+        ctx.font = `13px ${FONT_STACK}`;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.fillText('Score: ' + Math.floor(gameState.score) + '  \u2022  Press Space or Ctrl to restart', w / 2, 154);
+
+        ctx.textAlign = 'start';
+        ctx.textBaseline = 'alphabetic';
     }
 }
 
-// Event listeners for filtered events
-document.addEventListener('save', e => {
-    logEvent('Global Save', e.detail.context, e.detail.originalEvent);
+let animationId = 0;
 
-    // Visual feedback
-    document.body.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
-    setTimeout(() => {
-        document.body.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    }, 200);
-});
+function startGameLoop() {
+    if (animationId) return;
+    gameState.lastTime = performance.now();
+    animationId = requestAnimationFrame(frame);
+}
 
-document.addEventListener('open', e => {
-    logEvent('Global Open', e.detail.context, e.detail.originalEvent);
+function stopGameLoop() {
+    if (!animationId) return;
+    cancelAnimationFrame(animationId);
+    animationId = 0;
+}
 
-    // Visual feedback
-    document.body.style.background = 'linear-gradient(135deg, #2196F3, #1976D2)';
-    setTimeout(() => {
-        document.body.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    }, 200);
-});
+function frame(now) {
+    const delta = Math.min(now - gameState.lastTime, 32);
+    gameState.lastTime = now;
+    updateGame(delta, now);
+    drawGame();
+    animationId = requestAnimationFrame(frame);
+}
 
-document.addEventListener('editor.save', e => {
-    logEvent('Editor Save', e.detail.context, e.detail.originalEvent);
-
-    const textarea = document.getElementById('editor-textarea');
-    textarea.style.borderColor = '#4CAF50';
-    textarea.style.boxShadow = '0 0 0 3px rgba(76, 175, 80, 0.2)';
-
-    setTimeout(() => {
-        textarea.style.borderColor = '#e1e5e9';
-        textarea.style.boxShadow = 'none';
-    }, 1000);
-});
-
-document.addEventListener('editor.autocomplete', e => {
-    logEvent('Autocomplete', e.detail.context, e.detail.originalEvent);
-
-    const textarea = document.getElementById('editor-textarea');
-    const currentText = textarea.value;
-    const suggestions = ['function()', 'document.', 'console.log()', 'addEventListener()'];
-    const randomSuggestion = suggestions[Math.floor(Math.random() * suggestions.length)];
-
-    textarea.value = currentText + randomSuggestion;
-
-    // Visual feedback
-    textarea.style.background = 'rgba(255, 193, 7, 0.1)';
-    setTimeout(() => {
-        textarea.style.background = 'rgba(255, 255, 255, 0.8)';
-    }, 500);
-});
-
-document.addEventListener('editor.validateInput', e => {
-    logEvent('Input Validation', e.detail.context, e.detail.originalEvent);
-});
-
-document.addEventListener('editor.focusTextarea', e => {
-    logEvent('Textarea Focus', e.detail.context, e.detail.originalEvent);
-});
-
-document.addEventListener('*.info', e => {
-    logEvent('Info Action', e.detail.context, e.detail.originalEvent);
-
-    const button = document.getElementById('info-btn');
-    button.style.transform = 'scale(1.1)';
-    button.textContent = 'Info Activated!';
-
-    setTimeout(() => {
-        button.style.transform = 'scale(1)';
-        button.textContent = 'Info Button (try Ctrl+Click)';
-    }, 1000);
-});
-
-// Game movement events
-document.addEventListener('game.moveUp', e => {
-    logEvent('Move Up', e.detail.context, e.detail.originalEvent);
-    movePlayer('up');
-});
-
-document.addEventListener('game.moveDown', e => {
-    logEvent('Move Down', e.detail.context, e.detail.originalEvent);
-    movePlayer('down');
-});
-
-document.addEventListener('game.moveLeft', e => {
-    logEvent('Move Left', e.detail.context, e.detail.originalEvent);
-    movePlayer('left');
-});
-
-document.addEventListener('game.moveRight', e => {
-    logEvent('Move Right', e.detail.context, e.detail.originalEvent);
-    movePlayer('right');
-});
-
-document.addEventListener('game.jump', e => {
-    logEvent('Jump', e.detail.context, e.detail.originalEvent);
-
-    player.style.transform = 'translate(-50%, -60%) scale(1.2)';
-    setTimeout(() => {
-        player.style.transform = 'translate(-50%, -50%) scale(1)';
-    }, 300);
-});
-
-document.addEventListener('game.shoot', e => {
-    logEvent('Shoot', e.detail.context, e.detail.originalEvent);
-
-    // Create bullet effect
-    const bullet = document.createElement('div');
-    bullet.style.cssText = `
-        position: absolute;
-        width: 4px;
-        height: 10px;
-        background: #ffff00;
-        box-shadow: 0 0 10px #ffff00;
-        left: ${playerX}%;
-        top: ${playerY - 5}%;
-        transition: all 0.5s ease;
-        border-radius: 2px;
-    `;
-
-    document.querySelector('.game-area').appendChild(bullet);
-
-    // Animate bullet
-    setTimeout(() => {
-        bullet.style.top = '10%';
-        bullet.style.opacity = '0';
-    }, 50);
-
-    // Remove bullet
-    setTimeout(() => {
-        bullet.remove();
-    }, 600);
-});
-
-// Special sequences
-document.addEventListener('konami', e => {
-    logEvent('🎮 KONAMI CODE!', e.detail.context, e.detail.originalEvent);
-
-    // Epic effect
-    document.body.style.background = 'linear-gradient(45deg, #ff0080, #00ff80, #8000ff, #ff8000)';
-    document.body.style.backgroundSize = '400% 400%';
-    document.body.style.animation = 'rainbow 2s ease infinite';
-
-    // Add Konami icon to player
-    player.innerHTML = '🎮';
-    player.style.display = 'flex';
-    player.style.alignItems = 'center';
-    player.style.justifyContent = 'center';
-    player.style.fontSize = '20px';
-
-    setTimeout(() => {
-        document.body.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-        document.body.style.animation = 'none';
-        player.innerHTML = '';
-    }, 3000);
-});
-
-document.addEventListener('iddqd', e => {
-    logEvent('🛡️ GOD MODE', e.detail.context, e.detail.originalEvent);
-    isGodMode = !isGodMode;
-    updateCheatStatus();
-});
-
-document.addEventListener('idkfa', e => {
-    logEvent('🔫 ALL WEAPONS', e.detail.context, e.detail.originalEvent);
-    hasAllWeapons = !hasAllWeapons;
-    updateCheatStatus();
-});
-
-// Catch all other filtered events
-document.addEventListener('DOMFilterEvent', e => {
-    // Only log if not handled by specific handlers above
-    const handledEvents = [
-        'save', 'open', 'editor.save', 'editor.autocomplete', 'editor.validateInput',
-        'editor.focusTextarea', 'info', 'game.moveUp', 'game.moveDown', 'game.moveLeft',
-        'game.moveRight', 'game.jump', 'game.shoot', 'konami', 'iddqd', 'idkfa'
-    ];
-
-    if (!handledEvents.some(event => e.type.includes(event))) {
-        console.log('Unhandled event:', e.type, e.detail);
-    }
-});
-
-// Add rainbow animation CSS
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes rainbow {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
-`;
-document.head.appendChild(style);
-
-// Initialize game
-updatePlayerPosition();
-updateCheatStatus();
-
-// Make game area focusable and auto-focus on click
-const gameArea = document.querySelector('.game-area');
-gameArea.setAttribute('tabindex', '0');
 gameArea.addEventListener('click', () => {
     gameArea.focus();
 });
 
-// Auto-focus game area when page loads
-setTimeout(() => {
-    gameArea.focus();
-}, 1000);
+gameArea.addEventListener('focus', () => {
+    gameState.active = true;
+    gameMessage.textContent = gameState.running ? 'Game controls are active.' : 'Game over. Press Space or Ctrl to restart.';
+    startGameLoop();
+});
 
-// Make filter available in console for debugging
+gameArea.addEventListener('blur', () => {
+    gameState.active = false;
+    gameMessage.textContent = 'Game paused. Click the arena to continue.';
+    stopGameLoop();
+    drawGame();
+});
+
+document.addEventListener('game.focusArena', () => {
+    gameMessage.textContent = 'Arena focused. game.jump and game.shoot events are now active.';
+});
+
+document.addEventListener('game.jump', jump);
+document.addEventListener('game.shoot', shoot);
+
+document.addEventListener('iddqd', () => {
+    gameState.isGodMode = !gameState.isGodMode;
+    updateCheatStatus();
+    updateHud();
+});
+
+document.addEventListener('idkfa', () => {
+    gameState.hasAllWeapons = !gameState.hasAllWeapons;
+    if (gameState.hasAllWeapons) {
+        gameState.ammo = 999;
+    } else {
+        gameState.ammo = Math.min(gameState.ammo, 5);
+    }
+    updateCheatStatus();
+    updateHud();
+});
+
+window.addEventListener('resize', () => {
+    resizeCanvas();
+    drawGame();
+});
+
 window.filter = filter;
 
-// Welcome message
+// ── Context debug toggle ──
+
+const ctxToggle = document.getElementById('ctx-toggle');
+ctxToggle.addEventListener('click', () => {
+    const active = document.body.classList.toggle('show-contexts');
+    ctxToggle.lastChild.textContent = active ? ' Hide contexts' : ' Show contexts';
+});
+
+// ── Init ──
+
+resizeCanvas();
+clearFormState();
+updateCheatStatus();
+updateHud();
+setActiveContext(null);
+resetGame();
+drawGame();
+
 setTimeout(() => {
-    logEvent('🎯 Playground Ready!', 'system', null);
-}, 500);
+    logAll({
+        name: 'playground.ready',
+        context: 'system',
+        fullContext: 'system',
+        originalEvent: null
+    }, 'system.ready');
+}, 150);
