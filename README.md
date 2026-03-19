@@ -26,7 +26,7 @@ The library works by establishing a direct relationship between your **configura
 ```javascript
 const config = {
   editor: {
-    save: { key: 's', ctrlKey: true },  // Will trigger by hotkey in editor context
+    save: { code: 'KeyS', ctrlKey: true },  // Will trigger by hotkey in editor context
     toolbar: {
         save: { type: 'click' }  // Will trigger in editor > toolbar context
     }
@@ -74,15 +74,15 @@ import { DomEventFilter } from 'dom-event-filter'
 
 const filter = new DomEventFilter({
   // Global hotkeys
-  save: { key: 's', ctrlKey: true },
-  open: { key: 'o', altKey: true },
+  save: { code: 'KeyS', ctrlKey: true },
+  open: { code: 'KeyO', altKey: true },
 
   // Context-specific events
   editor: {
-    save: { key: 's', ctrlKey: true },
+    save: { code: 'KeyS', ctrlKey: true },
     autocomplete: [
-      { keyCode: 9 },  // Tab sequence
-      { keyCode: 9 }
+      { code: 'Tab' },  // Tab sequence
+      { code: 'Tab' }
     ],
     // Form events in editor context
     validateInput: { type: 'change', target: 'input[type="text"]' },
@@ -119,7 +119,7 @@ document.addEventListener('editor.save', e => {
   console.log('Save in editor context', e.detail)
 })
 
-// Wildcard listeners
+// Wildcard listeners (requires '*.{{name}}' in resultEventType)
 document.addEventListener('*.info', e => {
   console.log('Info event from any context', e.detail)
 })
@@ -138,8 +138,8 @@ Event masks are standard DOM event properties used for matching.
 
 ```javascript
 {
-  key: 'Enter',          // KeyboardEvent.key
-  keyCode: 13,           // KeyboardEvent.keyCode (legacy)
+  code: 'Enter',         // KeyboardEvent.code (layout-independent, recommended)
+  key: 'Enter',          // KeyboardEvent.key (layout-dependent alternative)
   ctrlKey: true,         // Modifier keys
   altKey: false,
   shiftKey: true,
@@ -198,11 +198,11 @@ When you define a nested configuration like `editor.toolbar.save`, the library w
 ```javascript
 const config = {
   // Global events (work anywhere on the page)
-  globalSave: { key: 's', ctrlKey: true },
+  globalSave: { code: 'KeyS', ctrlKey: true },
   
   // Editor context events
   editor: {
-    save: { key: 's', ctrlKey: true },        // Hotkey in editor area
+    save: { code: 'KeyS', ctrlKey: true },     // Hotkey in editor area
     focus: { type: 'focus', target: 'input' }, // Focus any input in editor
     
     // Nested toolbar context within editor
@@ -236,12 +236,12 @@ const config = [
   {
     name: 'save',
     context: ['editor'],
-    mask: { key: 's', ctrlKey: true }
+    mask: { code: 'KeyS', ctrlKey: true }
   },
   {
     name: 'bold', 
     context: ['dialog', 'toolbar'],        // Requires nested context
-    mask: { key: 'b', ctrlKey: true }
+    mask: { code: 'KeyB', ctrlKey: true }
   }
 ]
 ```
@@ -256,22 +256,22 @@ Define multi-step key combinations with automatic timeout:
 const filter = new DomEventFilter({
   // Classic Konami code
   konami: [
-    { key: 'ArrowUp' },
-    { key: 'ArrowUp' },
-    { key: 'ArrowDown' },
-    { key: 'ArrowDown' },
-    { key: 'ArrowLeft' },
-    { key: 'ArrowRight' },
-    { key: 'ArrowLeft' },
-    { key: 'ArrowRight' },
-    { key: 'b' },
-    { key: 'a' }
+    { code: 'ArrowUp' },
+    { code: 'ArrowUp' },
+    { code: 'ArrowDown' },
+    { code: 'ArrowDown' },
+    { code: 'ArrowLeft' },
+    { code: 'ArrowRight' },
+    { code: 'ArrowLeft' },
+    { code: 'ArrowRight' },
+    { code: 'KeyB' },
+    { code: 'KeyA' }
   ],
 
   // Double-tab for autocomplete
   doubleTab: [
-    { key: 'Tab' },
-    { key: 'Tab' }
+    { code: 'Tab' },
+    { code: 'Tab' }
   ]
 }, {
   sequenceTimeLimit: 1000  // 1 second timeout between keys
@@ -283,7 +283,7 @@ const filter = new DomEventFilter({
 ```javascript
 const filter = new DomEventFilter(config, {
   contextAttribute: 'data-context',     // HTML attribute for contexts
-  eventType: 'keydown click',           // Space-separated event types
+  eventType: 'keydown click',           // Space-separated event types to listen for
   rootElement: document.body,           // Root element for event delegation
   sequenceTimeLimit: 720,               // Maximum interval between sequence keys (ms)
   resultEventType: [                    // Custom event name templates (all are fired)
@@ -368,16 +368,19 @@ resultEventType: [
   '{{context}}.{{name}}',          // 'toolbar.save'
   '*.{{name}}',                    // '*.save' (wildcard)
   '{{name}}',                      // 'save' (name only)
+  '*',                             // '*' (catch-all wildcard)
   'DOMFilterEvent'                 // Generic catch-all
 ]
 ```
 
 **Template Variables:**
-- `{{name}}` - Event name from configuration
-- `{{context}}` - Immediate context name
-- `{{fullContext}}` - Complete context path (e.g., 'editor.toolbar')
-- `{{eventConfig.context[0]}}` - First context in hierarchy
-- Any property from `eventConfig` object
+- `{{name}}` - Event name from configuration key
+- `{{context}}` - Nearest context name from DOM (closest `data-context` to the event target)
+- `{{fullContext}}` - Complete context path from DOM, dot-joined (e.g., `'editor.toolbar'`)
+- `{{eventConfig.context[0]}}` - First context from config definition
+- Any property from the `eventConfig` or `detail` object via dot/bracket notation
+
+**Note:** `fullContext` is built from the DOM hierarchy (`data-context` attributes in the event's composed path), not from the config structure. This means it reflects where the event actually happened, not where it was defined.
 
 ### Custom Event Generation
 
@@ -438,24 +441,24 @@ document.addEventListener('DOMFilterEvent', e => {
 const editorFilter = new DomEventFilter({
   editor: {
     // Editor-wide actions
-    save: { key: 's', ctrlKey: true },
-    find: { key: 'f', ctrlKey: true },
+    save: { code: 'KeyS', ctrlKey: true },
+    find: { code: 'KeyF', ctrlKey: true },
     
     // Nested contexts within editor
     toolbar: {
-      bold: { key: 'b', ctrlKey: true },
-      italic: { key: 'i', ctrlKey: true },
-      underline: { key: 'u', ctrlKey: true }
+      bold: { code: 'KeyB', ctrlKey: true },
+      italic: { code: 'KeyI', ctrlKey: true },
+      underline: { code: 'KeyU', ctrlKey: true }
     },
     
     sidebar: {
-      toggle: { key: 'b', ctrlKey: true, shiftKey: true },
+      toggle: { code: 'KeyB', ctrlKey: true, shiftKey: true },
       
       // Further nesting: file explorer within sidebar
       files: {
-        newFile: { key: 'n', ctrlKey: true },
-        delete: { key: 'Delete' },
-        rename: { key: 'F2' }
+        newFile: { code: 'KeyN', ctrlKey: true },
+        delete: { code: 'Delete' },
+        rename: { code: 'F2' }
       }
     }
   }
@@ -495,7 +498,7 @@ document.addEventListener('editor.toolbar.bold', e => {
   console.log('Bold action in toolbar')
 })
 
-// Wildcard listeners for any context
+// Wildcard listeners (requires '*.{{name}}' in resultEventType)
 document.addEventListener('*.save', e => {
   console.log(`Save in context: ${e.detail.fullContext}`)
 })
@@ -511,18 +514,18 @@ document.addEventListener('DOMFilterEvent', e => {
 ```javascript
 const dialogFilter = new DomEventFilter({
   // Global escape to close any dialog
-  closeDialog: { key: 'Escape' },
+  closeDialog: { code: 'Escape' },
 
   // Context-specific dialog actions
   confirmDialog: {
-    confirm: { key: 'Enter' },
-    cancel: { key: 'Escape' }
+    confirm: { code: 'Enter' },
+    cancel: { code: 'Escape' }
   },
 
   // Form dialog
   formDialog: {
-    submit: { key: 'Enter', ctrlKey: true },
-    reset: { key: 'r', ctrlKey: true }
+    submit: { code: 'Enter', ctrlKey: true },
+    reset: { code: 'KeyR', ctrlKey: true }
   }
 })
 
@@ -538,29 +541,29 @@ document.addEventListener('*.confirm', e => {
 const gameFilter = new DomEventFilter({
   // Movement in game area
   game: {
-    moveUp: { key: 'ArrowUp' },
-    moveDown: { key: 'ArrowDown' },
-    moveLeft: { key: 'ArrowLeft' },
-    moveRight: { key: 'ArrowRight' },
-    jump: { key: ' ' },
-    shoot: { key: 'x' }
+    moveUp: { code: 'ArrowUp' },
+    moveDown: { code: 'ArrowDown' },
+    moveLeft: { code: 'ArrowLeft' },
+    moveRight: { code: 'ArrowRight' },
+    jump: { code: 'Space' },
+    shoot: { code: 'KeyX' }
   },
 
   // Menu controls
   menu: {
-    select: { key: 'Enter' },
-    back: { key: 'Escape' },
-    up: { key: 'ArrowUp' },
-    down: { key: 'ArrowDown' }
+    select: { code: 'Enter' },
+    back: { code: 'Escape' },
+    up: { code: 'ArrowUp' },
+    down: { code: 'ArrowDown' }
   },
 
   // Cheat codes
   godMode: [
-    { key: 'i' }, { key: 'd' }, { key: 'd' }, { key: 'q' }, { key: 'd' }
+    { code: 'KeyI' }, { code: 'KeyD' }, { code: 'KeyD' }, { code: 'KeyQ' }, { code: 'KeyD' }
   ],
 
   keyFullAmmo: [
-    { key: 'i' }, { key: 'd' }, { key: 'k' }, { key: 'f' }, { key: 'a' }
+    { code: 'KeyI' }, { code: 'KeyD' }, { code: 'KeyK' }, { code: 'KeyF' }, { code: 'KeyA' }
   ]
 })
 ```
@@ -595,11 +598,15 @@ The `eventTypes` object categorizes DOM events for internal sequence clearing lo
 ```javascript
 {
   keyboard: ['keydown', 'keypress', 'keyup'],
-  mouse: ['click', 'mousedown', 'mouseup'],
+  mouse: ['click', 'mousedown', 'mouseup', 'mouseover', 'mouseout', 'mouseenter', 'mouseleave'],
   mouse2: ['auxclick', 'contextmenu', 'dblclick', 'wheel'],
-  touch: ['touchstart', 'touchend', 'touchcancel'],
-  drag: ['dragstart', 'dragend'],
-  nav: ['focus', 'blur']
+  pointer: ['pointerdown', 'pointerup', 'pointercancel', 'pointerover', 'pointerout', 'pointerenter', 'pointerleave'],
+  touch: ['touchstart', 'touchend', 'touchcancel', 'touchmove'],
+  drag: ['drag', 'dragstart', 'dragend', 'dragenter', 'dragleave', 'dragover', 'drop'],
+  nav: ['focus', 'blur', 'focusin', 'focusout'],
+  forms: ['change', 'input', 'submit', 'reset', 'select'],
+  clipboard: ['copy', 'cut', 'paste'],
+  composition: ['compositionstart', 'compositionupdate', 'compositionend']
 }
 ```
 
