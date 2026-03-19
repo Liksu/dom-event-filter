@@ -235,7 +235,6 @@
             color: var(--accent);
             font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
             font-size: 0.8rem;
-            white-space: normal;
             overflow-wrap: anywhere;
             text-align: right;
             max-width: 110px;
@@ -489,7 +488,7 @@
         .validation-note.success { color: var(--success); }
 
         /* Event Log */
-        .events-list { overflow-y: auto; padding-right: 2px; min-height: 0; }
+        .events-list { overflow-y: auto; padding-right: 2px; min-height: 0; flex: 1; }
 
         .event-item {
             padding: 10px;
@@ -884,21 +883,10 @@
         </main>
 
         <aside class="side-panel logs-panel">
-            <div class="panel-title">Filtered Events</div>
+            <div class="panel-title">Event Log (recent)</div>
             <div class="panel-subtitle">Each filtered event dispatches multiple custom events via <code>resultEventType</code> templates. The <code>*</code> event catches all of them.</div>
-            <div class="log-columns">
-                <section class="log-panel">
-                    <div class="panel-title">All Filtered Events</div>
-                    <div id="all-events-list" class="events-list">
-                        <div class="empty-log">Filtered events will appear here.</div>
-                    </div>
-                </section>
-                <section class="log-panel">
-                    <div class="panel-title">Game Events</div>
-                    <div id="game-events-list" class="events-list">
-                        <div class="empty-log">Game-scoped events will appear here.</div>
-                    </div>
-                </section>
+            <div id="all-events-list" class="events-list">
+                <div class="empty-log">Interact with the demo to see events here.</div>
             </div>
         </aside>
 

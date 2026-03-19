@@ -68,7 +68,6 @@ const filter = new DomEventFilter({
 // ── DOM refs ──
 
 const allEventsList = document.getElementById('all-events-list');
-const gameEventsList = document.getElementById('game-events-list');
 const editorStatus = document.getElementById('editor-status');
 const formStatus = document.getElementById('form-status');
 
@@ -87,7 +86,6 @@ const contextStates = {
 // ── Event log ──
 
 let allEventCount = 0;
-let gameEventCount = 0;
 
 function renderEvent(list, title, detail, count, className = '') {
     const empty = list.querySelector('.empty-log');
@@ -119,15 +117,11 @@ function renderEvent(list, title, detail, count, className = '') {
     }
 }
 
-function logAll(detail, label) {
+function logAll(detail, label, className = '') {
     allEventCount += 1;
-    renderEvent(allEventsList, label, detail, allEventCount);
+    renderEvent(allEventsList, label, detail, allEventCount, className);
 }
 
-function logGame(detail, label) {
-    gameEventCount += 1;
-    renderEvent(gameEventsList, label, detail, gameEventCount, 'game');
-}
 
 // ── Context tracking ──
 
@@ -164,19 +158,14 @@ document.addEventListener('*', event => {
     const label = fullContext
         ? (fullContext.endsWith(name) ? fullContext : `${fullContext}.${name}`)
         : name;
-    logAll(event.detail, label);
-
-    if ((event.detail.fullContext || '').startsWith('game') || event.detail.context === 'game') {
-        logGame(event.detail, label);
-    }
+    const isGame = (fullContext || '').startsWith('game') || event.detail.context === 'game';
+    logAll(event.detail, label, isGame ? 'game' : '');
 });
 
 // ── Editor ──
 
 const editorCanvas = document.getElementById('editor-canvas');
 const fontSizeSelect = document.getElementById('font-size-select');
-const boldBtn = document.getElementById('editor-bold-btn');
-const italicBtn = document.getElementById('editor-italic-btn');
 
 // Prevent toolbar buttons from stealing focus/selection from the editor
 document.querySelector('.wysiwyg-toolbar').addEventListener('mousedown', e => {
@@ -836,7 +825,7 @@ function escHtml(str) {
 }
 
 function tokenizeJS(src) {
-    const re = /('(?:[^'\\]|\\.)*')|(\btrue\b|\bfalse\b|\bnull\b)|(-?\b\d+(?:\.\d+)?\b)|([$_a-zA-Z][$_\w]*\s*(?=\s*:))|([\[\]{},:\(\)])/g;
+    const re = /('(?:[^'\\]|\\.)*')|(\btrue\b|\bfalse\b|\bnull\b)|(-?\b\d+(?:\.\d+)?\b)|([$_a-zA-Z][$_\w]*\s*(?=\s*:))|([\[\]{},:])/g;
     let result = '', last = 0, m;
     while ((m = re.exec(src)) !== null) {
         if (m.index > last) result += escHtml(src.slice(last, m.index));
