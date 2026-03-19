@@ -609,13 +609,14 @@ function applyDamage(now) {
 
 function updateGame(delta, now) {
     if (!gameState.active) return;
+    const dt = delta / 16.67; // normalize to 60fps
 
     if (gameState.running) {
         gameState.score += delta * 0.014;
         gameState.speed = (isTouchDevice ? 2 : 3) + Math.min(gameState.score / (isTouchDevice ? 250 : 150), isTouchDevice ? 2 : 3.5) + gameState.speedOffset;
 
-        gameState.jumpVelocity += gameState.gravity;
-        gameState.player.y += gameState.jumpVelocity;
+        gameState.jumpVelocity += gameState.gravity * dt;
+        gameState.player.y += gameState.jumpVelocity * dt;
         if (gameState.player.y > gameState.playerGroundY) {
             gameState.player.y = gameState.playerGroundY;
             gameState.jumpVelocity = 0;
@@ -638,7 +639,7 @@ function updateGame(delta, now) {
         }
     }
 
-    const worldSpeed = gameState.running ? gameState.speed : 0;
+    const worldSpeed = (gameState.running ? gameState.speed : 0) * dt;
 
     gameState.obstacles = gameState.obstacles.filter(obstacle => {
         obstacle.x -= worldSpeed;
@@ -650,7 +651,7 @@ function updateGame(delta, now) {
     });
 
     gameState.enemies = gameState.enemies.filter(enemy => {
-        enemy.x -= worldSpeed + (gameState.running ? 0.8 : 0);
+        enemy.x -= worldSpeed + (gameState.running ? 0.8 * dt : 0);
         if (intersects(gameState.player, enemy) && gameState.running) {
             applyDamage(now);
             return false;
@@ -659,8 +660,8 @@ function updateGame(delta, now) {
     });
 
     gameState.shots = gameState.shots.filter(shot => {
-        shot.x += 12;
-        shot.y += (shot.vy || 0);
+        shot.x += 12 * dt;
+        shot.y += (shot.vy || 0) * dt;
 
         // Off-screen vertically
         if (shot.y < -10 || shot.y > CANVAS_H + 10) return false;
