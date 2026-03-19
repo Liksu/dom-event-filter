@@ -184,6 +184,14 @@ Contexts are defined using HTML attributes (configurable via `contextAttribute` 
 
 The configuration object structure directly mirrors your HTML context hierarchy. Each level of nesting in your config corresponds to a level of nesting in your DOM contexts. This relationship is the core of how the library works - it matches events based on where they occur in the context tree.
 
+```
+[contextName]
+  [nested contextName]
+    ...  
+      [nested contextName]
+        eventName: { ...eventMask }
+```
+
 When you define a nested configuration like `editor.toolbar.save`, the library will only trigger this event if it happens within an element that has both `data-context="editor"` and a nested `data-context="toolbar"`.
 
 **Object-based Configuration:**
