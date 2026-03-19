@@ -139,6 +139,20 @@ function setActiveContext(name = null) {
     document.querySelectorAll('.config-ctx-block').forEach(el => {
         el.classList.toggle('is-active', el.dataset.cfgCtx === name);
     });
+
+    // Pause/resume game based on context (needed for touch devices where blur doesn't fire)
+    if (name === 'game' && !gameState.active) {
+        gameState.active = true;
+        gameMessage.textContent = gameState.running
+            ? (isTouchDevice ? 'Swipe up to jump, tap to shoot.' : 'Game controls active. Space/Up jump, Ctrl/X shoot, +/- speed.')
+            : (isTouchDevice ? 'Game over. Tap to restart.' : 'Game over. Press Space or Ctrl to restart.');
+        startGameLoop();
+    } else if (name !== 'game' && gameState.active) {
+        gameState.active = false;
+        gameMessage.textContent = isTouchDevice ? 'Game paused. Tap to continue.' : 'Game paused. Click the arena to continue.';
+        stopGameLoop();
+        drawGame();
+    }
 }
 
 function findTopContext(target) {
@@ -418,7 +432,7 @@ const gameState = {
     speedOffset: 0,
     canvasWidth: 0,
     jumpVelocity: 0,
-    gravity: 0.65,
+    gravity: isTouchDevice ? 0.45 : 0.65,
     groundTop: 240,
     playerGroundY: 200,
     player: { x: 84, y: 200, width: 28, height: 40 },
@@ -558,7 +572,7 @@ function jump() {
     }
 
     if (gameState.player.y < gameState.playerGroundY) return;
-    gameState.jumpVelocity = gameState.isGodMode ? -15 : -12;
+    gameState.jumpVelocity = gameState.isGodMode ? -15 : (isTouchDevice ? -11 : -14);
 }
 
 function speedChange(offset = 0) {
@@ -598,7 +612,7 @@ function updateGame(delta, now) {
 
     if (gameState.running) {
         gameState.score += delta * 0.014;
-        gameState.speed = 3 + Math.min(gameState.score / 150, 3.5) + gameState.speedOffset;
+        gameState.speed = (isTouchDevice ? 2 : 3) + Math.min(gameState.score / (isTouchDevice ? 250 : 150), isTouchDevice ? 2 : 3.5) + gameState.speedOffset;
 
         gameState.jumpVelocity += gameState.gravity;
         gameState.player.y += gameState.jumpVelocity;
