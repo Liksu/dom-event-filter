@@ -9,11 +9,15 @@ class DomEventFilter {
 
     eventTypes = {
         keyboard: ['keydown', 'keypress', 'keyup'],
-        mouse: ['click', 'mousedown', 'mouseup'],
+        mouse: ['click', 'mousedown', 'mouseup', 'mouseover', 'mouseout', 'mouseenter', 'mouseleave'],
         mouse2: ['auxclick', 'contextmenu', 'dblclick', 'wheel'],
-        touch: ['touchstart', 'touchend', 'touchcancel'],
-        drag: ['dragstart', 'dragend'],
-        nav: ['focus', 'blur']
+        pointer: ['pointerdown', 'pointerup', 'pointercancel', 'pointerover', 'pointerout', 'pointerenter', 'pointerleave'],
+        touch: ['touchstart', 'touchend', 'touchcancel', 'touchmove'],
+        drag: ['drag', 'dragstart', 'dragend', 'dragenter', 'dragleave', 'dragover', 'drop'],
+        nav: ['focus', 'blur', 'focusin', 'focusout'],
+        forms: ['change', 'input', 'submit', 'reset', 'select'],
+        clipboard: ['copy', 'cut', 'paste'],
+        composition: ['compositionstart', 'compositionupdate', 'compositionend']
     };
 
     events = new ConfigManager();
