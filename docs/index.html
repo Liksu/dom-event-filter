@@ -285,6 +285,7 @@
             overflow: hidden;
             cursor: pointer;
             margin-top: 0.5rem;
+            touch-action: none;
         }
 
         .game-area:focus {
@@ -723,6 +724,21 @@
         @media (max-width: 740px) {
             .container { padding: 10px; }
             .form-grid { grid-template-columns: 1fr; }
+
+            .side-panel:first-child {
+                display: none;
+            }
+
+            .game-canvas { height: 200px; }
+
+            .header { grid-template-columns: 1fr; }
+            .header-note { display: none; }
+        }
+
+        @media (max-width: 480px) {
+            .container { padding: 8px; gap: 10px; }
+            .card { padding: 12px; }
+            .context-copy { display: none; }
         }
     </style>
 </head>
@@ -804,7 +820,7 @@
                         <canvas id="game-canvas" class="game-canvas" width="1100" height="280" aria-label="Game arena — use Space to jump over obstacles, Ctrl to shoot enemies" role="img"></canvas>
                     </div>
                 </div>
-                <div id="game-message" class="game-message">Click the arena to activate the game context. Space/ArrowUp to jump, Ctrl to shoot, +/− to adjust speed.</div>
+                <div id="game-message" class="game-message">Click or tap the arena to start. Space/Up to jump, Ctrl/X to shoot — or swipe up / tap on mobile.</div>
                 <div id="cheat-status" class="cheat-status">Sequences: type IDDQD for god mode, IDKFA for unlimited ammo (works from any context).</div>
             </section>
 

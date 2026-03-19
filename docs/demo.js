@@ -13,6 +13,9 @@ const filter = new DomEventFilter({
         speedDown: { code: 'Minus' },
         numSpeedUp: { code: 'NumpadAdd' },
         numSpeedDown: { code: 'NumpadSubtract' },
+        arrowDown: { key: 'ArrowDown' },
+        touchStart: { type: 'touchstart', target: '#game-canvas' },
+        touchEnd: { type: 'touchend', target: '#game-canvas' },
         focusArena: { type: 'click', target: '#game-area' }
     },
 
@@ -61,7 +64,7 @@ const filter = new DomEventFilter({
         { code: 'KeyI' }, { code: 'KeyD' }, { code: 'KeyK' }, { code: 'KeyF' }, { code: 'KeyA' }
     ]
 }, {
-    eventType: 'keydown click change focusin focusout input',
+    eventType: 'keydown click change focusin focusout input touchstart touchend',
     resultEventType: ['{{fullContext}}.{{name}}', '{{fullContext}}', '{{context}}.{{name}}', '{{name}}', '*', 'DOMFilterEvent']
 });
 
@@ -148,6 +151,10 @@ document.addEventListener('focusin', event => {
 });
 
 document.addEventListener('click', event => {
+    setActiveContext(findTopContext(event.target));
+});
+
+document.addEventListener('touchstart', event => {
     setActiveContext(findTopContext(event.target));
 });
 
@@ -386,6 +393,8 @@ registrationForm.addEventListener('reset', () => {
 
 // ── Game ──
 
+const isTouchDevice = matchMedia('(pointer: coarse)').matches;
+
 const gameArea = document.getElementById('game-area');
 const gameCanvas = document.getElementById('game-canvas');
 const gameMessage = document.getElementById('game-message');
@@ -461,7 +470,9 @@ function resetGame() {
     gameState.spawnTimer = 1200;
     gameState.ammoTimer = 0;
     gameState.invulnerableUntil = 0;
-    gameMessage.textContent = 'Game started. Space/Up to jump, Ctrl to shoot, +/- speed. Events only fire within this context.';
+    gameMessage.textContent = isTouchDevice
+        ? 'Game started. Swipe up to jump, tap to shoot.'
+        : 'Game started. Space/Up to jump, Ctrl/X to shoot, +/- speed.';
     updateHud();
 }
 
@@ -575,7 +586,7 @@ function applyDamage(now) {
     gameState.invulnerableUntil = now + 900;
     gameMessage.textContent = gameState.lives > 0
         ? 'Hit! Obstacles and enemies are context-scoped objects.'
-        : 'Game over. Press Space or Ctrl to restart.';
+        : (isTouchDevice ? 'Game over. Tap to restart.' : 'Game over. Press Space or Ctrl to restart.');
     if (gameState.lives <= 0) {
         gameState.running = false;
     }
@@ -724,7 +735,7 @@ function drawGame() {
 
         ctx.font = `13px ${FONT_STACK}`;
         ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        ctx.fillText('Score: ' + Math.floor(gameState.score) + '  \u2022  Press Space or Ctrl to restart', w / 2, 154);
+        ctx.fillText('Score: ' + Math.floor(gameState.score) + '  \u2022  ' + (isTouchDevice ? 'Tap to restart' : 'Press Space or Ctrl to restart'), w / 2, 154);
 
         ctx.textAlign = 'start';
         ctx.textBaseline = 'alphabetic';
@@ -759,13 +770,15 @@ gameArea.addEventListener('click', () => {
 
 gameArea.addEventListener('focus', () => {
     gameState.active = true;
-    gameMessage.textContent = gameState.running ? 'Game controls active. Space/Up jump, Ctrl shoot, +/- speed.' : 'Game over. Press Space or Ctrl to restart.';
+    gameMessage.textContent = gameState.running
+        ? (isTouchDevice ? 'Swipe up to jump, tap to shoot.' : 'Game controls active. Space/Up jump, Ctrl/X shoot, +/- speed.')
+        : (isTouchDevice ? 'Game over. Tap to restart.' : 'Game over. Press Space or Ctrl to restart.');
     startGameLoop();
 });
 
 gameArea.addEventListener('blur', () => {
     gameState.active = false;
-    gameMessage.textContent = 'Game paused. Click the arena to continue.';
+    gameMessage.textContent = isTouchDevice ? 'Game paused. Tap to continue.' : 'Game paused. Click the arena to continue.';
     stopGameLoop();
     drawGame();
 });
@@ -778,6 +791,29 @@ document.addEventListener('game.jump', jump);
 document.addEventListener('game.arrowJump', jump);
 document.addEventListener('game.shoot', shoot);
 document.addEventListener('game.xShoot', shoot);
+
+let touchStartY = 0;
+let touchStartX = 0;
+
+document.addEventListener('game.touchStart', e => {
+    const t = e.detail.originalEvent?.touches?.[0];
+    if (t) { touchStartX = t.clientX; touchStartY = t.clientY; }
+    e.detail.originalEvent?.preventDefault();
+    if (!gameState.active) { gameState.active = true; startGameLoop(); }
+});
+
+document.addEventListener('game.touchEnd', e => {
+    const t = e.detail.originalEvent?.changedTouches?.[0];
+    if (!t) return;
+    e.detail.originalEvent?.preventDefault();
+    const dx = t.clientX - touchStartX;
+    const dy = t.clientY - touchStartY;
+    if (Math.abs(dx) < 15 && Math.abs(dy) < 15) {
+        shoot();
+    } else if (Math.abs(dy) > Math.abs(dx) && dy < -20) {
+        jump();
+    }
+});
 
 document.addEventListener('game.speedUp', speedChange.bind(null, 0.1));
 document.addEventListener('game.numSpeedUp', speedChange.bind(null, 0.1));
