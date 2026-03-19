@@ -7,7 +7,13 @@ const filter = new DomEventFilter({
 
     game: {
         jump: { code: 'Space' },
+        arrowJump: { key: 'ArrowUp' },
         shoot: { key: 'Control' },
+        xShoot: { code: 'KeyX' },
+        speedUp: { code: 'Equal' },
+        speedDown: { code: 'Minus' },
+        numSpeedUp: { code: 'NumpadAdd' },
+        numSpeedDown: { code: 'NumpadSubtract' },
         focusArena: { type: 'click', target: '#game-area' }
     },
 
@@ -15,9 +21,9 @@ const filter = new DomEventFilter({
         save: { code: 'KeyS', ctrlKey: true },
         autocomplete: [{ code: 'Tab' }, { code: 'Tab' }],
         toolbar: {
-            bold: { type: 'click', target: '#editor-bold-btn' },
-            italic: { type: 'click', target: '#editor-italic-btn' },
-            fontSize: { type: 'change', target: '#font-size-select' }
+            bold:     { type: 'click',  target: '[data-action="bold"]' },
+            italic:   { type: 'click',  target: '[data-action="italic"]' },
+            fontSize: { type: 'change', target: '[data-action="fontSize"]' }
         },
         canvas: {
             focusBody: { type: 'focusin', target: '#editor-canvas' },
@@ -57,12 +63,7 @@ const filter = new DomEventFilter({
     ]
 }, {
     eventType: 'keydown click change focusin focusout input',
-    eventTypes: {
-        keyboard: ['keydown', 'keypress', 'keyup'],
-        mouse: ['click', 'mousedown', 'mouseup'],
-        forms: ['change', 'input', 'focusin', 'focusout']
-    },
-    resultEventType: ['{{fullContext}}.{{name}}', '{{context}}.{{name}}', '{{name}}', '*', 'DOMFilterEvent']
+    resultEventType: ['{{fullContext}}.{{name}}', '{{fullContext}}', '{{context}}.{{name}}', '{{name}}', '*', 'DOMFilterEvent']
 });
 
 // ── DOM refs ──
@@ -137,6 +138,11 @@ function setActiveContext(name = null) {
         card.classList.toggle('is-active', active);
         contextStates[contextName].textContent = active ? 'active' : 'inactive';
     });
+
+    // Highlight matching config block
+    document.querySelectorAll('.config-ctx-block').forEach(el => {
+        el.classList.toggle('is-active', el.dataset.cfgCtx === name);
+    });
 }
 
 function findTopContext(target) {
@@ -155,7 +161,10 @@ document.addEventListener('click', event => {
 // ── Catch-all event log ──
 
 document.addEventListener('*', event => {
-    const label = event.detail.fullContext ? `${event.detail.fullContext}.${event.detail.name}` : event.detail.name;
+    const { fullContext, name } = event.detail;
+    const label = fullContext
+        ? (fullContext.endsWith(name) ? fullContext : `${fullContext}.${name}`)
+        : name;
     logAll(event.detail, label);
 
     if ((event.detail.fullContext || '').startsWith('game') || event.detail.context === 'game') {
@@ -409,6 +418,7 @@ const gameState = {
     lives: 3,
     ammo: 5,
     speed: 3,
+    speedOffset: 0,
     canvasWidth: 0,
     jumpVelocity: 0,
     gravity: 0.65,
@@ -454,6 +464,7 @@ function resetGame() {
     gameState.lives = 3;
     gameState.ammo = 5;
     gameState.speed = 3;
+    gameState.speedOffset = 0;
     gameState.jumpVelocity = 0;
     gameState.player.y = gameState.playerGroundY;
     gameState.obstacles = [];
@@ -462,7 +473,7 @@ function resetGame() {
     gameState.spawnTimer = 1200;
     gameState.ammoTimer = 0;
     gameState.invulnerableUntil = 0;
-    gameMessage.textContent = 'Game started. Space to jump, Ctrl to shoot. Events only fire within this context.';
+    gameMessage.textContent = 'Game started. Space/Up to jump, Ctrl to shoot, +/- speed. Events only fire within this context.';
     updateHud();
 }
 
@@ -551,6 +562,15 @@ function jump() {
     gameState.jumpVelocity = gameState.isGodMode ? -15 : -12;
 }
 
+function speedChange(offset = 0) {
+    if (!gameState.running) return;
+    if (offset === 0) return;
+
+    gameState.speedOffset = +(gameState.speedOffset + offset).toFixed(1);
+    updateHud();
+    gameMessage.textContent = `Speed offset +${gameState.speedOffset.toFixed(1)}.`;
+}
+
 function intersects(a, b) {
     return !(
         a.x + a.width < b.x ||
@@ -579,7 +599,7 @@ function updateGame(delta, now) {
 
     if (gameState.running) {
         gameState.score += delta * 0.014;
-        gameState.speed = 3 + Math.min(gameState.score / 150, 3);
+        gameState.speed = 3 + Math.min(gameState.score / 150, 3.5) + gameState.speedOffset;
 
         gameState.jumpVelocity += gameState.gravity;
         gameState.player.y += gameState.jumpVelocity;
@@ -751,7 +771,7 @@ gameArea.addEventListener('click', () => {
 
 gameArea.addEventListener('focus', () => {
     gameState.active = true;
-    gameMessage.textContent = gameState.running ? 'Game controls are active.' : 'Game over. Press Space or Ctrl to restart.';
+    gameMessage.textContent = gameState.running ? 'Game controls active. Space/Up jump, Ctrl shoot, +/- speed.' : 'Game over. Press Space or Ctrl to restart.';
     startGameLoop();
 });
 
@@ -767,7 +787,16 @@ document.addEventListener('game.focusArena', () => {
 });
 
 document.addEventListener('game.jump', jump);
+document.addEventListener('game.arrowJump', jump);
 document.addEventListener('game.shoot', shoot);
+document.addEventListener('game.xShoot', shoot);
+
+document.addEventListener('game.speedUp', speedChange.bind(null, 0.1));
+document.addEventListener('game.numSpeedUp', speedChange.bind(null, 0.1));
+document.addEventListener('game.speedDown', speedChange.bind(null, -0.1));
+document.addEventListener('game.numSpeedDown', speedChange.bind(null, -0.1));
+
+window.gameState = gameState 
 
 document.addEventListener('iddqd', () => {
     gameState.isGodMode = !gameState.isGodMode;
@@ -799,6 +828,272 @@ const ctxToggle = document.getElementById('ctx-toggle');
 ctxToggle.addEventListener('click', () => {
     const active = document.body.classList.toggle('show-contexts');
     ctxToggle.lastChild.textContent = active ? ' Hide contexts' : ' Show contexts';
+});
+
+// ── Config panel toggle & syntax highlight ──
+
+function escHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function tokenizeJS(src) {
+    const re = /('(?:[^'\\]|\\.)*')|(\btrue\b|\bfalse\b|\bnull\b)|(-?\b\d+(?:\.\d+)?\b)|([$_a-zA-Z][$_\w]*\s*(?=\s*:))|([\[\]{},:\(\)])/g;
+    let result = '', last = 0, m;
+    while ((m = re.exec(src)) !== null) {
+        if (m.index > last) result += escHtml(src.slice(last, m.index));
+        if      (m[1] !== undefined) result += `<span class="syn-str">${escHtml(m[1])}</span>`;
+        else if (m[2] !== undefined) result += `<span class="syn-bool">${escHtml(m[2])}</span>`;
+        else if (m[3] !== undefined) result += `<span class="syn-num">${escHtml(m[3])}</span>`;
+        else if (m[4] !== undefined) result += `<span class="syn-key">${escHtml(m[4])}</span>`;
+        else if (m[5] !== undefined) result += `<span class="syn-punct">${escHtml(m[5])}</span>`;
+        last = re.lastIndex;
+    }
+    if (last < src.length) result += escHtml(src.slice(last));
+    return result;
+}
+
+const CONFIG_SRC = `{
+  save: { code: 'KeyS', ctrlKey: true },
+  open: { code: 'KeyO', altKey: true },
+
+  game: {
+    jump:       { code: 'Space' },
+    arrowJump:  { key: 'ArrowUp' },
+    shoot:      { key: 'Control' },
+    xShoot:     { code: 'KeyX' },
+    speedUp:    { code: 'Equal' },
+    speedDown:  { code: 'Minus' },
+    numSpeedUp:   { code: 'NumpadAdd' },
+    numSpeedDown: { code: 'NumpadSubtract' },
+    focusArena: { type: 'click', target: '#game-area' }
+  },
+
+  editor: {
+    save:         { code: 'KeyS', ctrlKey: true },
+    autocomplete: [{ code: 'Tab' }, { code: 'Tab' }],
+    toolbar: {
+      bold:     { type: 'click',  target: '[data-action="bold"]' },
+      italic:   { type: 'click',  target: '[data-action="italic"]' },
+      fontSize: { type: 'change', target: '[data-action="fontSize"]' }
+    },
+    canvas: {
+      focusBody: { type: 'focusin',  target: '#editor-canvas' },
+      blurBody:  { type: 'focusout', target: '#editor-canvas' },
+      editBody:  { type: 'input',    target: '#editor-canvas' }
+    }
+  },
+
+  form: {
+    profile: {
+      focusName:     { type: 'focusin', target: '#register-name' },
+      focusEmail:    { type: 'focusin', target: '#register-email' },
+      validateName:  { type: 'change',  target: '#register-name' },
+      validateEmail: { type: 'change',  target: '#register-email' }
+    },
+    security: {
+      focusPassword:    { type: 'focusin', target: '#register-password' },
+      validatePassword: { type: 'change',  target: '#register-password' }
+    },
+    meta: {
+      roleChange: { type: 'change', target: '#register-role' }
+    },
+    actions: {
+      validate:    { type: 'click', target: '#validate-btn' },
+      resetClick:  { type: 'click', target: '#reset-btn' },
+      submitClick: { type: 'click', target: '#submit-btn' }
+    },
+    submit: { code: 'Enter', ctrlKey: true },
+    reset:  { code: 'Escape' }
+  },
+
+  iddqd: [
+    { code: 'KeyI' }, { code: 'KeyD' }, { code: 'KeyD' },
+    { code: 'KeyQ' }, { code: 'KeyD' }
+  ],
+  idkfa: [
+    { code: 'KeyI' }, { code: 'KeyD' }, { code: 'KeyK' },
+    { code: 'KeyF' }, { code: 'KeyA' }
+  ]
+}`;
+
+const OPTIONS_SRC = `{
+  eventType: 'keydown click change focusin focusout input',
+  resultEventType: [
+    '{{fullContext}}.{{name}}',
+    '{{context}}.{{name}}',
+    '{{name}}', '*', 'DOMFilterEvent'
+  ]
+}`;
+
+// Map context names to line ranges in CONFIG_SRC (1-based line indices)
+const CTX_LINE_RANGES = {
+    game:   { from: 5, to: 15 },
+    editor: { from: 17, to: 30 },
+    form:   { from: 32, to: 52 }
+};
+
+function renderConfigPanel() {
+    const el = document.getElementById('config-source');
+    if (!el || el.children.length > 0) return;
+
+    // Config block — group contiguous context lines into wrapper divs
+    const g1 = document.createElement('div');
+    g1.className = 'config-src-group';
+    const h1 = document.createElement('h3');
+    h1.textContent = 'Config';
+    g1.appendChild(h1);
+
+    const b1 = document.createElement('div');
+    b1.className = 'config-src-block';
+
+    const lines = CONFIG_SRC.split('\n');
+    let currentCtx = null;
+    let blockDiv = null;
+
+    for (let i = 0; i < lines.length; i++) {
+        const lineNum = i + 1;
+        let ctx = null;
+        for (const [name, range] of Object.entries(CTX_LINE_RANGES)) {
+            if (lineNum >= range.from && lineNum <= range.to) {
+                ctx = name;
+                break;
+            }
+        }
+
+        // Context changed — close previous block, open new one
+        if (ctx !== currentCtx) {
+            blockDiv = null;
+            if (ctx) {
+                blockDiv = document.createElement('div');
+                blockDiv.className = 'config-ctx-block';
+                blockDiv.dataset.cfgCtx = ctx;
+                b1.appendChild(blockDiv);
+            }
+            currentCtx = ctx;
+        }
+
+        const lineEl = document.createElement('div');
+        lineEl.className = 'cfg-line';
+        lineEl.innerHTML = tokenizeJS(lines[i]);
+
+        if (blockDiv) {
+            blockDiv.appendChild(lineEl);
+        } else {
+            b1.appendChild(lineEl);
+        }
+    }
+
+    g1.appendChild(b1);
+    el.appendChild(g1);
+
+    // Options block
+    const g2 = document.createElement('div');
+    g2.className = 'config-src-group';
+    const h2 = document.createElement('h3');
+    h2.textContent = 'Options';
+    g2.appendChild(h2);
+    const b2 = document.createElement('div');
+    b2.className = 'config-src-block';
+    OPTIONS_SRC.split('\n').forEach(line => {
+        const d = document.createElement('div');
+        d.className = 'cfg-line';
+        d.innerHTML = tokenizeJS(line);
+        b2.appendChild(d);
+    });
+    g2.appendChild(b2);
+    el.appendChild(g2);
+
+    // Listeners block — grouped like left sidebar
+    const LISTENER_GROUPS = [
+        { label: 'Global', items: [
+            "document.addEventListener('save', ...)",
+            "document.addEventListener('open', ...)",
+        ]},
+        { label: 'Game', items: [
+            "document.addEventListener('game.focusArena', ...)",
+            "document.addEventListener('game.jump', jump)",
+            "document.addEventListener('game.arrowJump', jump)",
+            "document.addEventListener('game.shoot', shoot)",
+            "document.addEventListener('game.xShoot', shoot)",
+            "document.addEventListener('game.speedUp', ...)",
+            "document.addEventListener('game.speedDown', ...)",
+            "document.addEventListener('game.numSpeedUp', ...)",
+            "document.addEventListener('game.numSpeedDown', ...)",
+        ]},
+        { label: 'Editor', items: [
+            "document.addEventListener('editor.toolbar.bold', ...)",
+            "document.addEventListener('editor.toolbar.italic', ...)",
+            "document.addEventListener('editor.toolbar.fontSize', ...)",
+            "document.addEventListener('editor.canvas.focusBody', ...)",
+            "document.addEventListener('editor.canvas.blurBody', ...)",
+            "document.addEventListener('editor.canvas.editBody', ...)",
+            "document.addEventListener('editor.autocomplete', ...)",
+        ]},
+        { label: 'Form', items: [
+            "document.addEventListener('form.profile.focusName', ...)",
+            "document.addEventListener('form.profile.focusEmail', ...)",
+            "document.addEventListener('form.profile.validateName', ...)",
+            "document.addEventListener('form.profile.validateEmail', ...)",
+            "document.addEventListener('form.security.focusPassword', ...)",
+            "document.addEventListener('form.security.validatePassword', ...)",
+            "document.addEventListener('form.meta.roleChange', ...)",
+            "document.addEventListener('form.actions.validate', ...)",
+            "document.addEventListener('form.actions.resetClick', ...)",
+            "document.addEventListener('form.actions.submitClick', ...)",
+            "document.addEventListener('form.submit', ...)",
+            "document.addEventListener('form.reset', ...)",
+        ]},
+        { label: 'Sequences', items: [
+            "document.addEventListener('iddqd', ...)",
+            "document.addEventListener('idkfa', ...)",
+        ]},
+        { label: 'Catch-all', items: [
+            "document.addEventListener('*', ...)",
+        ]},
+    ];
+
+    const g3 = document.createElement('div');
+    g3.className = 'config-src-group';
+    const h3el = document.createElement('h3');
+    h3el.textContent = 'Listeners';
+    g3.appendChild(h3el);
+
+    LISTENER_GROUPS.forEach(group => {
+        const section = document.createElement('div');
+        section.className = 'listener-group';
+
+        const heading = document.createElement('div');
+        heading.className = 'listener-group-label';
+        heading.textContent = group.label;
+        section.appendChild(heading);
+
+        group.items.forEach(item => {
+            const line = document.createElement('div');
+            line.className = 'listener-item';
+            // Extract event name from the string for highlighting
+            const match = item.match(/'([^']+)'/);
+            if (match) {
+                const eventName = match[1];
+                line.innerHTML = `<span class="syn-punct">on</span> <span class="syn-str">'${escHtml(eventName)}'</span>`;
+            } else {
+                line.textContent = item;
+            }
+            section.appendChild(line);
+        });
+
+        g3.appendChild(section);
+    });
+
+    el.appendChild(g3);
+}
+
+const cfgToggle = document.getElementById('cfg-toggle');
+cfgToggle.addEventListener('click', () => {
+    const active = document.body.classList.toggle('show-config');
+    cfgToggle.lastChild.textContent = active ? ' Hide config' : ' Show config';
+    if (active) renderConfigPanel();
+    resizeCanvas();
+    drawGame();
 });
 
 // ── Init ──
