@@ -1,5 +1,4 @@
-// import { DomEventFilter } from "https://unpkg.com/dom-event-filter@latest/index.js";
-import { DomEventFilter } from "http://localhost:8888/index.js";
+import { DomEventFilter } from "https://unpkg.com/dom-event-filter@latest/index.js";
 
 const filter = new DomEventFilter({
     save: { code: 'KeyS', ctrlKey: true },

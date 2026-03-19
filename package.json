@@ -1,19 +1,51 @@
 {
   "name": "dom-event-filter",
-  "version": "0.0.1",
-  "description": "Allows you to split your page to contexts and catch events (like hotkeys) by mask-objects from config",
+  "version": "1.0.0",
+  "description": "Split your page into contexts and route DOM events (hotkeys, clicks, forms) by mask-objects from config",
   "main": "index.js",
+  "module": "index.js",
+  "unpkg": "index.js",
+  "exports": {
+    ".": {
+      "import": "./index.js",
+      "default": "./index.js"
+    }
+  },
+  "type": "module",
+  "files": [
+    "index.js",
+    "native.js",
+    "config.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
   "scripts": {
     "test": "NODE_OPTIONS=--experimental-vm-modules jest"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Liksu/dom-event-filter.git"
+  },
+  "homepage": "https://liksu.github.io/dom-event-filter/",
+  "bugs": {
+    "url": "https://github.com/Liksu/dom-event-filter/issues"
+  },
   "keywords": [
     "hotkey",
+    "keyboard",
+    "shortcut",
     "dom",
-    "event"
+    "event",
+    "event-filter",
+    "event-delegation",
+    "context",
+    "event-routing",
+    "keymap",
+    "filter"
   ],
   "author": "Liksu",
   "license": "MIT",
-  "type": "module",
   "jest": {
     "rootDir": "./tests",
     "testEnvironment": "jest-environment-node",
